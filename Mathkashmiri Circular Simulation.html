@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circular Path Meeting Point Puzzle</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .problem-text {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid #3498db;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        canvas {
+            background-color: #fff;
+            border-radius: 50%;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+            margin: 20px 0;
+            border: 2px solid #ddd;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .btn-start { background-color: #2ecc71; color: white; }
+        .btn-start:hover { background-color: #27ae60; }
+        
+        .btn-reset { background-color: #e74c3c; color: white; }
+        .btn-reset:hover { background-color: #c0392b; }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-box {
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .sonia-box { background-color: #ffd1dc; color: #880e4f; }
+        .ravi-box { background-color: #bbdefb; color: #0d47a1; }
+
+        .timer-display {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #555;
+        }
+
+        .message {
+            height: 24px;
+            font-weight: bold;
+            color: #e67e22;
+            margin-top: 10px;
+        }
+
+        .inputs {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            align-items: center;
+        }
+        input {
+            width: 50px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Circular Race Simulation</h1>
+        
+        <div class="problem-text">
+            <strong>The Problem:</strong> Sonia takes <strong><span id="txt-sonia">18</span></strong> min per round. Ravi takes <strong><span id="txt-ravi">12</span></strong> min per round. They start together. When will they meet at the start again?
+        </div>
+
+        <div class="inputs">
+            <label>Sonia Time:</label>
+            <input type="number" id="soniaSpeed" value="18" min="1">
+            <label>Ravi Time:</label>
+            <input type="number" id="raviSpeed" value="12" min="1">
+        </div>
+
+        <div class="timer-display">Time: <span id="timer">0</span> min</div>
+        <div class="message" id="message"></div>
+
+        <canvas id="raceTrack" width="300" height="300"></canvas>
+
+        <div class="stats">
+            <div class="stat-box sonia-box">
+                Sonia (Pink)<br>
+                Laps: <span id="soniaLaps">0</span>
+            </div>
+            <div class="stat-box ravi-box">
+                Ravi (Blue)<br>
+                Laps: <span id="raviLaps">0</span>
+            </div>
+        </div>
+
+        <br>
+
+        <div class="controls">
+            <button class="btn-start" onclick="toggleSimulation()">Start / Pause</button>
+            <button class="btn-reset" onclick="resetSimulation()">Reset</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('raceTrack');
+        const ctx = canvas.getContext('2d');
+        const timerEl = document.getElementById('timer');
+        const msgEl = document.getElementById('message');
+        const soniaLapsEl = document.getElementById('soniaLaps');
+        const raviLapsEl = document.getElementById('raviLaps');
+        
+        // Input binding
+        const soniaInput = document.getElementById('soniaSpeed');
+        const raviInput = document.getElementById('raviSpeed');
+
+        let isRunning = false;
+        let timeElapsed = 0; // in logical minutes
+        let animationId;
+        
+        // Configuration
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = 100;
+        const speedMultiplier = 0.1; // How fast the animation plays visually
+
+        function drawTrack() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Track
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#95a5a6';
+            ctx.lineWidth = 10;
+            ctx.stroke();
+
+            // Draw Start Line (at 12 o'clock / -90 degrees)
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - radius - 15);
+            ctx.lineTo(centerX, centerY - radius + 15);
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            
+            // Start Text
+            ctx.fillStyle = '#e74c3c';
+            ctx.font = '12px Arial';
+            ctx.fillText("START", centerX - 18, centerY - radius - 20);
+        }
+
+        function drawRunner(color, lapTime, radiusOffset) {
+            // Calculate angle: (Time / LapTime) * 2PI
+            // -0.5 * PI shifts 0 position to 12 o'clock
+            const angle = ((timeElapsed / lapTime) * 2 * Math.PI) - (0.5 * Math.PI);
+            
+            const x = centerX + (radius + radiusOffset) * Math.cos(angle);
+            const y = centerY + (radius + radiusOffset) * Math.sin(angle);
+
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function update() {
+            if (!isRunning) return;
+
+            // Increment time
+            timeElapsed += speedMultiplier;
+
+            const sTime = parseInt(soniaInput.value);
+            const rTime = parseInt(raviInput.value);
+
+            // Update DOM text
+            timerEl.textContent = timeElapsed.toFixed(1);
+
+            // Calculate laps
+            const sLaps = Math.floor(timeElapsed / sTime);
+            const rLaps = Math.floor(timeElapsed / rTime);
+
+            soniaLapsEl.textContent = sLaps;
+            raviLapsEl.textContent = rLaps;
+
+            // Draw
+            drawTrack();
+            drawRunner('#e91e63', sTime, -5); // Sonia (Pink, inner lane)
+            drawRunner('#2196f3', rTime, 5);  // Ravi (Blue, outer lane)
+
+            // Check for meeting at start
+            // Logic: If both have completed a whole number of laps AND time is not 0
+            // We use a small epsilon because of floating point math
+            const epsilon = speedMultiplier / 2;
+            
+            // Check if time is close to a multiple of both speeds
+            const isSoniaAtStart = Math.abs(timeElapsed % sTime) < epsilon || Math.abs(timeElapsed % sTime - sTime) < epsilon;
+            const isRaviAtStart = Math.abs(timeElapsed % rTime) < epsilon || Math.abs(timeElapsed % rTime - rTime) < epsilon;
+
+            // We only trigger "WIN" if timeElapsed is significantly greater than 0
+            if (timeElapsed > 1 && isSoniaAtStart && isRaviAtStart) {
+                // Find the exact integer time for display nicety
+                const exactTime = Math.round(timeElapsed);
+                timerEl.textContent = exactTime;
+                msgEl.textContent = `THEY MEET AT ${exactTime} MINUTES!`;
+                isRunning = false;
+                
+                // Draw final position exactly at start
+                drawTrack();
+                // Force draw at top
+                ctx.beginPath();
+                ctx.arc(centerX, centerY - radius - 5, 8, 0, 2 * Math.PI);
+                ctx.fillStyle = '#e91e63';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY - radius + 5, 8, 0, 2 * Math.PI);
+                ctx.fillStyle = '#2196f3';
+                ctx.fill();
+                return;
+            }
+
+            animationId = requestAnimationFrame(update);
+        }
+
+        function toggleSimulation() {
+            if (isRunning) {
+                isRunning = false;
+                cancelAnimationFrame(animationId);
+            } else {
+                // Reset message if starting fresh
+                if(timeElapsed === 0) msgEl.textContent = "Racing...";
+                isRunning = true;
+                update();
+            }
+        }
+
+        function resetSimulation() {
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            timeElapsed = 0;
+            timerEl.textContent = "0";
+            soniaLapsEl.textContent = "0";
+            raviLapsEl.textContent = "0";
+            msgEl.textContent = "";
+            drawTrack();
+            
+            // Update problem text to match inputs
+            document.getElementById('txt-sonia').textContent = soniaInput.value;
+            document.getElementById('txt-ravi').textContent = raviInput.value;
+            
+            // Draw initial dots at start
+            const sTime = parseInt(soniaInput.value);
+            const rTime = parseInt(raviInput.value);
+            drawRunner('#e91e63', sTime, -5);
+            drawRunner('#2196f3', rTime, 5);
+        }
+
+        // Add event listeners to inputs to update problem text
+        soniaInput.addEventListener('change', resetSimulation);
+        raviInput.addEventListener('change', resetSimulation);
+
+        // Initial Draw
+        resetSimulation();
+
+    </script>
+</body>
+</html>
